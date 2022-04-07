@@ -1,0 +1,181 @@
+一、安装nginx
+1.下载nginx，地址：http://nginx.org/en/download.html，下载nginx-1.6.0.tar.gz，在服务器上可以直接wget http://nginx.org/download/nginx-1.6.0.tar.gz
+2.安装pcre开发包
+# yum install -y pcre-devel
+3.如果安装出现在下面的错误是缺少编译环境。安装编译源码所需的工具和库
+./configure: error: C compiler cc is not found
+# yum install gcc gcc-c++ ncurses-devel perl
+4.安装cmake，从http://www.cmake.org下载源码并编译安装
+# yum -y install make gcc gcc-c++ ncurses-devel
+# yum -y install zlib zlib-devel
+5.如果需要ssl功能需要openssl库
+# yum -y install openssl openssl-devel
+6.解压，编译，安装
+# tar -zxvf nginx-1.6.0.tar.gz
+# cd nginx-1.6.0
+# ./configure --prefix=/usr/local/nginx
+# make
+# make install
+7.如果出现以下错误，需要增加软链接error while loading shared libraries: libpcre.so.1: cannot open shared object file: No such file or directory
+32位系统按以下方式添加
+# ln -s /lib/libpcre.so.0.0.1 /lib/libpcre.so.1
+64位操作系统,安装pcre后,安装的位置为/usr/local/lib/*pcre*, 需要按以下方式添加
+# ln -s /usr/local/lib/libpcre.so.1 /lib64/
+
+二、安装keepalived
+1.下载，下载keepalived-1.2.7.tar.gz，这个版本，否则安装时有可能出现不可预见的错误，地址：http://www.keepalived.org/download.html，在服务器上可以直接wget http://www.keepalived.org/software/keepalived-1.2.7.tar.gz
+2.解压
+# tar -zxvf keepalived-1.2.7.tar.gz
+3.编译
+# cd keepalived-1.2.7
+# ./configure --prefix=/usr/local/keepalived
+# make
+# make install
+4.如果安装过程中报错:OpenSSL is not properly installed on your system.，
+# yum install -y openssl openssl-devel
+报错:configure: error: Popt libraries is required
+# yum install popt-devel
+5.添加到服务
+# cp /usr/local/keepalived/sbin/keepalived /usr/sbin/
+# cp /usr/local/keepalived/etc/sysconfig/keepalived /etc/sysconfig/
+# cp /usr/local/keepalived/etc/rc.d/init.d/keepalived /etc/init.d/
+# mkdir /etc/keepalived/
+# cp /usr/local/keepalived/etc/keepalived/keepalived.conf /etc/keepalived/
+
+二、配置nginx
+# vi /usr/local/nginx/conf/nginx.conf
+添加
+upstream vtvi{ #vtvi可自己定义
+    server 172.48.3.1:8028 weight=2; #配置两个地址并分配权重
+    server 172.48.3.2:8028 weight=1;
+}
+server {
+    listen 8128; #配置对外端口号
+    location / {
+        proxy_pass http://vtvi; #与上面一致
+    }
+}
+
+三、配置keepalived
+1.准备两台服务器，三个ip，其中每个服务器各用一个ip，剩下一个ip用于keepalived虚拟出的一个vip
+主nginx负载均衡器：172.48.3.1
+辅nginx负载均衡器：172.48.3.2
+vip：172.48.3.3
+2.编辑文件/etc/keepalived/keepalived.conf
+主服务器：
+! Configuration File for keepalived
+
+vrrp_script chk_http_port {
+    script "/etc/keepalived/nginx_pid.sh" #监控脚本
+    interval 2 #监控时间
+    weight 2
+}
+global_defs { #可不管
+   notification_email {
+     acassen@firewall.loc
+     failover@firewall.loc
+     sysadmin@firewall.loc
+   }
+   notification_email_from Alexandre.Cassen@firewall.loc
+   smtp_server 192.168.200.1
+   smtp_connect_timeout 30
+   router_id LVS_DEVEL_72
+}
+vrrp_instance VI_1 {
+    state MASTER #指定A节点为主节点 备用节点上设置为BACKUP即可
+    interface eth0 #绑定虚拟IP的网络接口
+    virtual_router_id 73 #VRRP组名，两个节点的设置必须一样，以指明各个节点属于同一VRRP组
+    priority 100 #主节点的优先级（1-254之间），备用节点必须比主节点优先级低
+    advert_int 1 #组播信息发送间隔，两个节点设置必须一样
+    nopreempt
+    authentication { #设置验证信息，两个节点必须一致
+        auth_type PASS
+        auth_pass hbwxcm
+    }
+    track_script {
+        chk_http_port # 执行监控的服务
+    }
+    virtual_ipaddress { #指定虚拟IP, 两个节点设置必须一样
+	    172.48.3.3
+    }
+}
+备服务器：（区别主要在state和priority）
+! Configuration File for keepalived
+
+vrrp_script chk_http_port {
+script "/etc/keepalived/nginx_pid.sh"
+    interval 2
+    weight 2
+}
+global_defs {
+   notification_email {
+     acassen@firewall.loc
+     failover@firewall.loc
+     sysadmin@firewall.loc
+   }
+   notification_email_from Alexandre.Cassen@firewall.loc
+   smtp_server 192.168.200.1
+   smtp_connect_timeout 30
+   router_id LVS_DEVEL_73
+}
+vrrp_instance VI_1 {
+    state BACKUP
+    interface eth0
+    virtual_router_id 73
+    priority 90
+    advert_int 1
+    nopreempt
+    authentication {
+        auth_type PASS
+        auth_pass hbwxcm
+    }
+    track_script {
+       chk_http_port
+    }
+    virtual_ipaddress {
+	    172.48.3.3
+    }
+}
+3.编写监控nginx脚本（两台服务器都需要）/etc/keepalived/nginx_pid.sh并将其设置为可执行文件
+#!/bin/bash
+NGINX_PROCESS=`ps -C nginx --no-header | wc -l`
+if [ $NGINX_PROCESS -eq 0 ];then
+    /usr/local/nginx/sbin/nginx -c /usr/local/nginx/conf/nginx.conf
+    sleep 3
+    if [ `ps -C nginx --no-header | wc -l` -eq 0 ];then
+        /etc/init.d/keepalived stop
+    fi
+fi
+4.添加防火墙（如果需要）
+# vi /etc/sysconfig/iptables
+添加
+-A INPUT -p vrrp -j ACCEPT
+重启
+# service iptables restart
+5.设置开机启动
+# cd /etc/init.d/
+# chkconfig keepalived on
+
+四、启动nginx和keepalived并测试
+1.nginx相关命令：
+测试配置文件是否正确：
+# /usr/local/nginx/sbin/nginx -t
+启动：
+# /usr/local/nginx/sbin/nginx -c /usr/local/nginx/conf/nginx.conf
+修改配置后重新加载生效：
+# /usr/local/nginx/sbin/nginx -s reload
+停止：
+# /usr/local/nginx/sbin/nginx -s stop
+查看nginx日志：
+# tail /usr/local/nginx/logs/access.log
+2.keepalived相关命令：
+启动：
+# service keepalived start
+停止：
+# service keepalived stop
+重启：
+# service keepalived restart
+3.测试主备是否正常切换
+关闭主服务器keepalived，查看备服务器keepalived是否立即切换
+关闭备服务器keepalived，查看主服务器keepalived是否立即切换
+注：# ip a 命令查看网卡

@@ -1,0 +1,42 @@
+windows：
+1. 下载：https://github.com/microsoftarchive/redis/releases
+    得到Redis-x64-3.2.100.zip
+2. 解压到D:\Program\Redis，使用cmd切换至该目录
+3. 运行：redis-server.exe redis.windows.conf
+4. 服务开启后，可使用客户端进行验证：
+    另起cmd窗口运行：redis-cli.exe -h 127.0.0.1 -p 6379 或 redis-cli.exe
+        127.0.0.1:6379> ping
+        PONG
+    验证成功
+
+linux：
+1. 下载：http://download.redis.io/releases/redis-5.0.8.tar.gz
+    放在/home/gzh/
+2. 解压：# tar zxvf redis-5.0.8.tar.gz
+3. 编译安装：
+    # cd redis-5.0.8
+    # make
+    # make install PREFIX=/usr/local/redis
+    此时/usr/local/redis下有个bin文件夹，文件夹中有redis-server、redis-cli等文件
+4. 配置：
+    新建配置文件目录
+    # mkdir /usr/local/redis/etc
+    拷贝配置文件至新建目录
+    # cp redis.conf /usr/local/redis/etc/
+    编辑配置文件
+    # vi /usr/local/redis/etc/redis.conf
+        将daemonize no 改成daemonize yes；
+        将protected-mode yes改成protected-mode no；
+        将bind 127.0.0.1注释掉。
+        保存退出
+    将redis加入开机启动
+    # vi /etc/rc.local
+        添加/usr/local/redis/bin/redis-server /usr/local/redis/etc/redis.conf
+    添加6379端口至防火墙
+    # vi /etc/sysconfig/iptables
+        添加-A INPUT -m state --state NEW -m tcp -p tcp --dport 6379 -j ACCEPT
+    # service iptables restart
+5. 启动
+    /usr/local/redis/bin/redis-server /usr/local/redis/etc/redis.conf
+6. 停止
+    /usr/local/redis/bin/redis-cli -h 127.0.0.1 -p 6379 shutdown

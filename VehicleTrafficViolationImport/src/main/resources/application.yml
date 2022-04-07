@@ -1,0 +1,25 @@
+server:
+  port: 8028
+  servlet:
+    context-path: /vtvi
+  tomcat:
+    accesslog:
+      enabled: true
+spring:
+  profiles:
+    active: prod
+  datasource:
+    driver-class-name: com.mysql.jdbc.Driver
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL5InnoDBDialect
+#        generate_statistics: true
+        jdbc:
+          batch_size: 500
+        order_inserts: true
+        order_updates: true
+    hibernate:
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    open-in-view: false

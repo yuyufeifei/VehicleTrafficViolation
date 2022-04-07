@@ -1,0 +1,25 @@
+server:
+  port: 8029
+  servlet:
+    context-path: /vtvq
+  tomcat:
+    accesslog:
+      buffered: true
+      directory: /home/logs
+      enabled: true
+      file-date-format: .yyyy-MM-dd
+      pattern: common
+      prefix: access_log
+      rename-on-rotate: false
+      request-attributes-enabled: false
+      rotate: true
+      suffix: .log
+spring:
+  profiles:
+    active: prod-ctc
+  jpa:
+    properties: {hibernate.dialect: org.hibernate.dialect.MySQL5InnoDBDialect}
+    hibernate:
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    open-in-view: false

@@ -1,0 +1,302 @@
+服务器操作系统版本：CentOS6.5
+
+1. 服务器配置万象本地yum源
+# cd /etc/yum.repos.d/
+# vi localyum.repo
+
+centos6.X如下配置：
+
+[localyum]
+name=centos6
+baseurl=http://172.25.41.14/centos/6/os/x86_64/
+enable=1
+gpgcheck=0
+
+[localepel]
+name=epel
+baseurl=http://172.25.41.14/epel/6/x86_64/
+enable=1
+gpgcheck=0
+
+[localextra]
+name=extra
+baseurl=http://172.25.41.14/centos/6/extras/x86_64/
+enable=1
+gpgcheck=0
+
+centos7如下配置：
+
+[localyum]
+name=centos7
+baseurl=http://172.25.41.14/centos/7/os/x86_64/
+enable=1
+gpgcheck=0
+
+[localepel]
+name=epel
+baseurl=http://172.25.41.14/epel/7/x86_64/
+enable=1
+gpgcheck=0
+
+[localextra]
+name=extra
+baseurl=http://172.25.41.14/centos/7/extras/x86_64/
+enable=1
+gpgcheck=0
+
+关闭其他yum源
+# vi CentOS-Base.repo
+# 在每一个启动的源加上
+# enabled=0   #改为1就启用，没有此参数也是启用。
+[base]
+…………
+enabled=0
+[updates]
+…………
+enabled=0
+[extras]
+…………
+enabled=0
+还有其他开启的仓库就使用这个办法关闭。
+
+或者直接把整个repo文件改名，mv CentOS-Base.repo CentOS-Base.repo.bak，其他类似，不再赘述。
+
+# yum clean all
+# yum makecache
+
+2. 安装rz
+
+# yum install lrzsz
+
+3. 安装jdk1.8
+查看已安装的版本
+# java -version
+# rpm -qa | grep jdk
+如果已经安装了1.6或1.7的版本，执行以下命令，将其删除
+# yum remove java-1.7.0-openjdk java-1.6.0-openjdk
+安装：
+# rpm -ivh jdk-8u231-linux-x64.rpm
+
+4. 安装mysql5.7
+解压文件
+# tar -xvf mysql-5.7.29-1.el6.x86_64.rpm-bundle.tar
+安装
+# rpm -ivh mysql-community-*
+
+配置：
+
+先启动mysql
+# service mysqld start
+
+可能会遇到启动失败的问题
+先删除datadir=/var/lib/mysql里的数据
+# rm -rf /var/lib/mysql/*
+初始化
+# mysqld --initialize --user=mysql
+启动
+# service mysqld start
+
+开机启动
+# chkconfig --list | grep mysqld
+# chkconfig mysqld on
+
+登录
+查看默认密码
+# grep 'temporary password' /var/log/mysqld.log
+使用默认密码登录
+# mysql -uroot -p
+修改密码
+mysql> ALTER USER 'root'@'localhost' IDENTIFIED BY 'hbwxcm';
+退出，使用新密码登录验证
+
+允许远程登录
+mysql> grant all privileges on *.* to 'root'@'%' identified by 'hbwxcm';
+mysql> flush privileges;
+
+修改防火墙：
+# vi /etc/sysconfig/iptables
+添加语句
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 3306 -j ACCEPT
+保存后重启防火墙
+# service iptables restart
+
+
+修改字符集
+修改/etc/my.cnf
+# vi /etc/my.cnf
+添加
+[client]
+default-character-set=utf8
+[mysql]
+default-character-set=utf8
+在[mysqld]下添加
+character-set-server=utf8
+保存后重启mysql
+# service mysqld restart
+查看字符集：
+mysql> show variables like 'character_set_%';
+
+
+配置主从复制
+
+万象2（mysql）：
+
+# vi /etc/my.cnf
+在[mysqld]下添加
+log_bin = mysql-bin
+server-id = 102
+innodb_file_per_table = ON
+skip_name_resolve = ON
+relay_log = relay-bin
+binlog-format = row
+log-slave-updates = true
+binlog-do-db = tvq
+binlog-ignore-db = mysql
+
+进入数据库，创建用于复制的账号
+mysql> grant replication slave on *.* to 'repl'@'%' identified by 'hbwxcm';
+mysql> flush privileges;
+
+重启服务
+
+#刷新所有表并阻止写入语句。如果退出客户端，则锁定将被释放
+#mysql> FLUSH TABLES WITH READ LOCK;
+#打开另一个会话
+mysql> show master status;
++------------------+----------+--------------+------------------+-------------------+
+| File             | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++------------------+----------+--------------+------------------+-------------------+
+| mysql-bin.000001 |      154 |              |                  |                   |
++------------------+----------+--------------+------------------+-------------------+
+
+
+联通2（mysql）
+
+# vi /etc/my.cnf
+在[mysqld]下添加
+log_bin = mysql-bin
+server-id = 112
+innodb_file_per_table = ON
+skip_name_resolve = ON
+relay_log = relay-bin
+binlog-format = row
+log-slave-updates = true
+
+重启服务
+
+mysql> SLAVE STOP;
+mysql> CHANGE MASTER TO MASTER_HOST='172.48.3.2',MASTER_PORT=3306,MASTER_USER='repl',MASTER_PASSWORD='hbwxcm',MASTER_LOG_FILE='mysql-bin.000001',MASTER_LOG_POS=154;
+mysql> START SLAVE;
+mysql> SHOW SLAVE STATUS\G
+
+
+电信2（mysql）
+# vi /etc/my.cnf
+在[mysqld]下添加
+log_bin = mysql-bin
+server-id = 122
+innodb_file_per_table = ON
+skip_name_resolve = ON
+relay_log = relay-bin
+binlog-format = row
+log-slave-updates = true
+
+重启服务
+
+mysql> SLAVE STOP;
+mysql> CHANGE MASTER TO MASTER_HOST='172.48.3.2',MASTER_PORT=3306,MASTER_USER='repl',MASTER_PASSWORD='hbwxcm',MASTER_LOG_FILE='mysql-bin.000001',MASTER_LOG_POS=154;
+mysql> START SLAVE;
+mysql> SHOW SLAVE STATUS\G
+
+
+移动2（mysql）
+
+# vi /etc/my.cnf
+在[mysqld]下添加
+log_bin = mysql-bin
+server-id = 132
+innodb_file_per_table = ON
+skip_name_resolve = ON
+relay_log = relay-bin
+binlog-format = row
+log-slave-updates = true
+
+重启服务
+
+mysql> SLAVE STOP;
+mysql> CHANGE MASTER TO MASTER_HOST='172.48.3.2',MASTER_PORT=3306,MASTER_USER='repl',MASTER_PASSWORD='hbwxcm',MASTER_LOG_FILE='mysql-bin.000001',MASTER_LOG_POS=154;
+mysql> START SLAVE;
+mysql> SHOW SLAVE STATUS\G
+
+
+配置完成。
+在主服务器上创建一个数据库
+mysql> CREATE DATABASE tvq;
+
+5. 配置NTP
+万象：
+# cat /etc/ntp.conf
+server 172.25.41.41
+#fudge 127.127.1.0 stratum 10
+driftfile /etc/ntp.drift
+
+电信：
+# cat /etc/ntp.conf
+server 172.16.10.10
+#fudge 127.127.1.0 stratum 10
+driftfile /etc/ntp.drift
+
+移动：
+# cat /etc/ntp.conf
+server 172.20.1.250
+#fudge 127.127.1.0 stratum 10
+driftfile /etc/ntp.drift
+
+联通：
+# cat /etc/ntp.conf
+server 172.16.5.88
+#fudge 127.127.1.0 stratum 10
+driftfile /etc/ntp.drift
+
+设置开机启动：
+# chkconfig ntpd on
+
+其他命令：
+查看ntp服务器与上层ntp的状态：
+# ntpq -p
+查看ntp服务器有无和上层ntp连通：
+# ntpstat
+
+6. 配置zabbix客户端
+关闭selinux
+# vi /etc/selinux/config
+SELINUX=disabled
+
+# setenforce 0
+
+安装unixODBC
+# yum install unixODBC
+
+安装zabbix rpm包
+# rpm -ivh zabbix-agent-3.0.0-2.el6.x86_64.rpm
+
+修改zabbix配置
+# vi /etc/zabbix/zabbix_agentd.conf
+
+Server = <服务端IP地址>
+ServerActive = <服务端IP地址>
+Hostname = <自定义名字>
+
+各平台服务端地址：
+电信：172.16(17).10.2
+联通：192.168.1.254
+移动：172.20.2.22
+
+Hostname写本服务器IP地址
+
+7. 安装gcc
+# yum -y install gcc automake autoconf libtool make
+
+8. 安装redis至联通2、电信2、移动2。安装过程见logs\redis\安装、配置.txt
+
+9. 万象两台服务器做nginx+keepalived双机互备。安装过程见logs\vtvi\nginx+keepalived双机互备.txt

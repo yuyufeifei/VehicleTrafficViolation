@@ -1,0 +1,41 @@
+移动：
+172.20.8.2:
+# nohup java -jar vehicle-traffic-violation-query-0.0.1.jar > vtvq_log.txt 2>&1 &
+[1] 17963
+
+172.20.8.3:
+# nohup java -jar vehicle-traffic-violation-query-0.0.1.jar > vtvq_log.txt 2>&1 &
+[1] 22946
+
+联通：
+192.168.4.4:
+# nohup java -jar vehicle-traffic-violation-query-0.0.1.jar > vtvq_log.txt 2>&1 &
+[1] 115224
+
+192.168.4.5:
+# nohup java -jar vehicle-traffic-violation-query-0.0.1.jar > vtvq_log.txt 2>&1 &
+[1] 118867
+
+电信：
+172.16.22.1:
+# nohup java -jar vehicle-traffic-violation-query-0.0.1.jar > vtvq_log.txt 2>&1 &
+[1] 12195
+172.16.22.2:
+# nohup java -jar vehicle-traffic-violation-query-0.0.1.jar > vtvq_log.txt 2>&1 &
+[1] 26943
+
+重启：使用/home/gzh/rssb.sh此脚本
+
+防火墙设置：
+# vi /etc/sysconfig/iptables
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 8029 -j ACCEPT
+# service iptables restart
+
+
+测试：
+# curl -d "hphm=a&hpzl=b&sbdm=c" "http://localhost:8029/vtvq/jdcwfcx"
+
+负载均衡：
+电信：192.168.5.5:21615
+移动：192.168.129.131:18004
+联通：10.7.198.104:13201

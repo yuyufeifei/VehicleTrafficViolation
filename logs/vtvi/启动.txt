@@ -1,0 +1,18 @@
+172.48.3.1
+# cd /home/project/
+# nohup java -jar vehicle-traffic-violation-import-0.0.1.jar > vtvi_log.txt 2>&1 &
+[1] 25670
+
+172.48.3.2
+# cd /home/project/
+# nohup java -jar vehicle-traffic-violation-import-0.0.1.jar > vtvi_log.txt 2>&1 &
+[1] 21194
+
+服务端口：
+172.48.3.1:8028
+172.48.3.2:8028
+
+vip：
+172.48.3.3:8128
+
+重启：/home/gzh/下 运行 rssb.sh

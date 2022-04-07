@@ -1,0 +1,5 @@
+spring:
+  datasource:
+    url: jdbc:mysql://172.48.3.2:3306/tvq?useUnicode=true&characterEncoding=UTF-8&useSSL=false&rewriteBatchedStatements=true
+    username: root
+    password: hbwxcm

@@ -1,0 +1,41 @@
+1. 首先创建父工程
+File-New-Project...
+2. 选中Spring Initializr
+选择Project SDK版本、Default：https://start.spring.io
+3. 填写信息
+Group：com.wxcm
+Artifact：vehicle-traffic-violation
+Version：0.0.1
+Name：vehicle-traffic-violation  (自动)
+Description：motor vehicle traffic violation query system
+Package：com.wxcm.vtv
+4. 依赖页不用勾选，直接Next
+5. 修改Project name：VehicleTrafficViolation（非必要）
+6. 在pom文件中增加packaging
+<packaging>pom</packaging>
+7. 删除不必要文件：.mvn文件夹、src文件夹、.gitignore、HELP.md、mvnw、mvnw.cmd
+8. 执行mvn clean install（必须）
+
+9. 在工程上右键New-Module
+10. 填写模块信息
+Group：com.wxcm
+Artifact：vehicle-traffic-violation-query
+Version：0.0.1
+Name：vehicle-traffic-violation-query  (自动)
+Description：vehicle traffic violation data query
+11. 选择需要的依赖，然后Next
+12. 修改Module name：VehicleTrafficViolationQuery（非必要）
+12. 在父级pom中增加modules
+<modules>
+    <module>VehicleTrafficViolationQuery</module>
+</modules>
+13. 修改子pom的parent节点，改为父pom的信息，并删除子pom的groupId节点
+<parent>
+    <groupId>com.wxcm</groupId>
+    <artifactId>vehicle-traffic-violation</artifactId>
+    <version>0.0.1</version>
+    <relativePath/>
+</parent>
+14. 删除Module中的不必要文件.mvn文件夹、.gitignore、HELP.md、mvnw、mvnw.cmd
+
+15.VehicleTrafficViolationImport模块同上9-14
